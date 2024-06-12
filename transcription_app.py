@@ -28,8 +28,8 @@ def save_transcription():
         with open("last_state.txt", "w") as f:
             f.write(f"{directory}\n{st.session_state.current_index}\n")
 
+        # Clear transcription input
         st.session_state.transcription_input = ""
-        st.session_state.current_index += 1
 
 def load_last_state():
     if os.path.exists("last_state.txt"):
