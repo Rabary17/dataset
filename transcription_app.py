@@ -11,6 +11,8 @@ if 'wav_files' not in st.session_state:
     st.session_state.wav_files = []
 if 'transcribed_files' not in st.session_state:
     st.session_state.transcribed_files = {}
+if 'transcription_input' not in st.session_state:
+    st.session_state.transcription_input = ""
 
 def save_transcription():
     transcription = st.session_state.transcription_input.strip()
@@ -73,9 +75,9 @@ if st.session_state.current_index >= 0 and st.session_state.current_index < len(
     transcribed = st.session_state.transcribed_files.get(wav_path, False)
     if transcribed:
         st.write(f"File '{wav_file}' has already been transcribed.")
-        st.text_input("Transcription:", key="transcription_input", value=st.session_state.transcriptions[wav_path])
+        st.text_input("Transcription:", key="transcription_input", value=st.session_state.transcriptions[wav_path], on_change=save_transcription)
     else:
-        st.text_input("Transcription:", key="transcription_input")
+        st.text_input("Transcription:", key="transcription_input", on_change=save_transcription)
 
     if st.button("Save Transcription"):
         save_transcription()
@@ -83,6 +85,8 @@ if st.session_state.current_index >= 0 and st.session_state.current_index < len(
     if st.session_state.current_index + 1 < len(st.session_state.wav_files):
         if st.button("Next WAV"):
             save_transcription()
+            st.session_state.current_index += 1
+            st.session_state.transcription_input = ""
 
 else:
     st.write("All files have been transcribed.")
