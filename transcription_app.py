@@ -30,8 +30,12 @@ def save_transcription():
         with open("last_state.txt", "w") as f:
             f.write(f"{directory}\n{st.session_state.current_index}\n")
 
-        # Clear transcription input
-        st.session_state.transcription_input = ""
+        # Move to the next WAV file
+        if st.session_state.current_index + 1 < len(st.session_state.wav_files):
+            st.session_state.current_index += 1
+            st.session_state.transcription_input = ""  # Reset transcription input for the next file
+        else:
+            st.session_state.current_index = -1  # Mark as all files transcribed
 
 def load_last_state():
     if os.path.exists("last_state.txt"):
@@ -81,13 +85,6 @@ if st.session_state.current_index >= 0 and st.session_state.current_index < len(
 
     if st.button("Save Transcription"):
         save_transcription()
-
-    if st.session_state.current_index + 1 < len(st.session_state.wav_files):
-        if st.button("Next WAV"):
-            save_transcription()
-            st.session_state.current_index += 1
-            st.session_state.transcription_input = ""  # Reset transcription input for the next file
-
 else:
     st.write("All files have been transcribed.")
 
