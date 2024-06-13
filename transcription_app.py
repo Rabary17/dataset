@@ -9,7 +9,7 @@ usernames = ["user1", "user2"]
 passwords = ["123", "456"]
 hashed_passwords = stauth.Hasher(passwords).generate()
 
-authenticator = stauth.Authenticate(names, usernames, hashed_passwords, "transcription_app", "abcdef")
+authenticator = stauth.Authenticate(names, usernames, hashed_passwords, "transcription_app", "abcdef", cookie_expiry_days=1)
 
 name, authentication_status, username = authenticator.login("Login", "main")
 
@@ -131,3 +131,4 @@ if authentication_status:
 
 else:
     st.error("Username/password is incorrect")
+
