@@ -86,8 +86,7 @@ if st.session_state.current_index >= 0 and st.session_state.current_index < len(
         if st.button("Next WAV"):
             save_transcription()
             st.session_state.current_index += 1
-            # Avoid direct manipulation; reset via callback or st.text_input default
-            st.session_state.transcription_input = ""
+            st.session_state.transcription_input = ""  # Reset transcription input for the next file
 
 else:
     st.write("All files have been transcribed.")
