@@ -77,7 +77,7 @@ if st.session_state.current_index >= 0 and st.session_state.current_index < len(
         st.write(f"File '{wav_file}' has already been transcribed.")
         st.text_input("Transcription:", key="transcription_input", value=st.session_state.transcriptions[wav_path], on_change=save_transcription)
     else:
-        st.text_input("Transcription:", key="transcription_input", on_change=save_transcription)
+        st.text_input("Transcription:", key="transcription_input")
 
     if st.button("Save Transcription"):
         save_transcription()
@@ -86,6 +86,7 @@ if st.session_state.current_index >= 0 and st.session_state.current_index < len(
         if st.button("Next WAV"):
             save_transcription()
             st.session_state.current_index += 1
+            # Avoid direct manipulation; reset via callback or st.text_input default
             st.session_state.transcription_input = ""
 
 else:
