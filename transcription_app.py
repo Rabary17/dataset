@@ -21,10 +21,6 @@ def save_transcription(index, transcription):
         df = pd.DataFrame(list(st.session_state.transcriptions.items()), columns=["Path", "Sentence"])
         df.to_csv("transcriptions.tsv", sep="\t", index=False)
 
-        # Save current state
-        with open("last_state.txt", "w") as f:
-            f.write(f"{directory}\n{st.session_state.current_index}\n")
-
 def load_last_state():
     if os.path.exists("last_state.txt"):
         with open("last_state.txt", "r") as f:
@@ -51,7 +47,7 @@ def reset_transcriptions():
     st.session_state.current_index = 0
     st.session_state.transcriptions = {}
     st.session_state.wav_files = []
-    st.write("Transcriptions and state have been reset.")
+    st.write("Transcriptions have been reset.")
 
 def reset_session():
     if os.path.exists("transcriptions.tsv"):
@@ -80,18 +76,20 @@ if st.button("Load Directory"):
         st.write("Invalid directory. Please try again.")
 
 if st.session_state.wav_files:
-    start_index = st.session_state.current_index
-    end_index = min(start_index + 5, len(st.session_state.wav_files))
-    for i in range(start_index, end_index):
-        wav_file = st.session_state.wav_files[i]
+    num_files = min(5, len(st.session_state.wav_files) - st.session_state.current_index)
+    columns = st.beta_columns(num_files)
+
+    for i in range(num_files):
+        wav_file = st.session_state.wav_files[st.session_state.current_index + i]
         wav_path = os.path.join(directory, wav_file)
-        st.audio(wav_path)
-        transcription = st.text_input(f"Transcription for {wav_file}", key=f"transcription_{i}", 
-                                      value=st.session_state.transcriptions.get(wav_path, ""), 
-                                      on_change=save_transcription, args=(i, st.session_state[f"transcription_{i}"]))
+        columns[i].audio(wav_path)
+        transcription = columns[i].text_input(f"Transcription for {wav_file}", 
+                                              key=f"transcription_{i}", 
+                                              value=st.session_state.transcriptions.get(wav_path, ""), 
+                                              on_change=save_transcription, args=(st.session_state.current_index + i, st.session_state[f"transcription_{i}"]))
     
     if st.button("Next 5 Files"):
-        st.session_state.current_index = end_index
+        st.session_state.current_index += num_files
 
 if os.path.exists("last_state.txt"):
     load_last_state()
