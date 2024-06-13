@@ -79,6 +79,10 @@ if st.button("Load Directory"):
         st.session_state.current_index = 0
         load_transcriptions()
         st.write(f"Loaded {len(st.session_state.wav_files)} files.")
+
+        # Print out directory and list of WAV files
+        print("Directory:", directory)
+        print("WAV Files:", st.session_state.wav_files)
     else:
         st.write("Invalid directory. Please try again.")
 
@@ -86,6 +90,9 @@ if st.session_state.current_index >= 0 and st.session_state.current_index < len(
     wav_file = st.session_state.wav_files[st.session_state.current_index]
     wav_path = os.path.join(directory, wav_file)
     st.audio(wav_path)
+
+    # Print out wav_path
+    print("WAV Path:", wav_path)
 
     st.text_input("Transcription:", key="transcription_input", value=st.session_state.transcriptions.get(wav_path, ""), on_change=save_transcription)
 
