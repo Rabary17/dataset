@@ -4,23 +4,18 @@ import streamlit as st
 
 # Initialize session state variables
 if 'current_index' not in st.session_state:
-    st.session_state.current_index = -1
+    st.session_state.current_index = 0
 if 'transcriptions' not in st.session_state:
     st.session_state.transcriptions = {}
 if 'wav_files' not in st.session_state:
     st.session_state.wav_files = []
-if 'transcribed_files' not in st.session_state:
-    st.session_state.transcribed_files = {}
-if 'transcription_input' not in st.session_state:
-    st.session_state.transcription_input = ""
 
-def save_transcription():
-    transcription = st.session_state.transcription_input.strip()
+def save_transcription(index, transcription):
+    transcription = transcription.strip()
     if transcription:
-        wav_file = st.session_state.wav_files[st.session_state.current_index]
+        wav_file = st.session_state.wav_files[index]
         wav_path = os.path.join(directory, wav_file)
         st.session_state.transcriptions[wav_path] = transcription
-        st.session_state.transcribed_files[wav_path] = True
 
         # Save to TSV
         df = pd.DataFrame(list(st.session_state.transcriptions.items()), columns=["Path", "Sentence"])
@@ -29,13 +24,6 @@ def save_transcription():
         # Save current state
         with open("last_state.txt", "w") as f:
             f.write(f"{directory}\n{st.session_state.current_index}\n")
-
-        # Move to the next WAV file
-        if st.session_state.current_index + 1 < len(st.session_state.wav_files):
-            st.session_state.current_index += 1
-            st.session_state.transcription_input = ""  # Reset transcription input for the next file
-        else:
-            st.session_state.current_index = -1  # Mark as all files transcribed
 
 def load_last_state():
     if os.path.exists("last_state.txt"):
@@ -54,89 +42,25 @@ def load_transcriptions():
         df = pd.read_csv("transcriptions.tsv", sep="\t")
         for _, row in df.iterrows():
             st.session_state.transcriptions[row['Path']] = row['Sentence']
-            st.session_state.transcribed_files[row['Path']] = True
 
 def reset_transcriptions():
     if os.path.exists("transcriptions.tsv"):
         os.remove("transcriptions.tsv")
     if os.path.exists("last_state.txt"):
         os.remove("last_state.txt")
-    st.session_state.current_index = -1
+    st.session_state.current_index = 0
     st.session_state.transcriptions = {}
-    st.session_state.transcribed_files = {}
-    st.session_state.transcription_input = ""
+    st.session_state.wav_files = []
     st.write("Transcriptions and state have been reset.")
 
-# User interface
-st.title("Transcription App")
-
-directory = st.text_input("Select directory containing WAV files:", value="")
-
-if st.button("Load Directory"):
-    if os.path.isdir(directory):
-        st.session_state.wav_files = [f for f in os.listdir(directory) if f.endswith('.wav')]
-        st.session_state.wav_files.sort()
-        st.session_state.current_index = 0
-        load_transcriptions()
-        st.write(f"Loaded {len(st.session_state.wav_files)} files.")
-
-        # Print out directory and list of WAV files
-        print("Directory:", directory)
-        print("WAV Files:", st.session_state.wav_files)
-    else:
-        st.write("Invalid directory. Please try again.")
-
-if st.session_state.current_index >= 0 and st.session_state.current_index < len(st.session_state.wav_files):
-    wav_file = st.session_state.wav_files[st.session_state.current_index]
-    wav_path = os.path.join(directory, wav_file)
-    st.audio(wav_path)
-
-    # Print out wav_path
-    print("WAV Path:", wav_path)
-
-    st.text_input("Transcription:", key="transcription_input", value=st.session_state.transcriptions.get(wav_path, ""), on_change=save_transcription)
-
-    if st.button("Save Transcription"):
-        save_transcription()
-else:
-    st.write("All files have been transcribed.")
-
-# Load last state if exists
-if os.path.exists("last_state.txt"):
-    load_last_state()
-    if st.session_state.current_index >= 0:
-        st.write(f"Resumed from last session. Current file: {st.session_state.wav_files[st.session_state.current_index]}")
-
-# Provide option to download the TSV file
-if os.path.exists("transcriptions.tsv"):
-    with open("transcriptions.tsv", "r") as f:
-        tsv_content = f.read()
-    st.download_button(
-        label="Download Transcriptions TSV",
-        data=tsv_content,
-        file_name="transcriptions.tsv",
-        mime="text/tab-separated-values"
-    )
-
-# Provide option to reset transcriptions
-if st.button("Reset Transcriptions"):
-    if st.checkbox("Confirm Reset"):
-        reset_transcriptions()
-
 def reset_session():
-    # Remove any saved files
     if os.path.exists("transcriptions.tsv"):
         os.remove("transcriptions.tsv")
     if os.path.exists("last_state.txt"):
         os.remove("last_state.txt")
-
-    # Clear session state variables
-    st.session_state.current_index = -1
+    st.session_state.current_index = 0
     st.session_state.transcriptions = {}
-    st.session_state.transcribed_files = {}
-    st.session_state.transcription_input = ""
     st.session_state.wav_files = []
-
     st.write("Session has been reset.")
 
 # User interface
@@ -148,7 +72,6 @@ if st.button("Load Directory"):
     if os.path.isdir(directory):
         st.session_state.wav_files = [f for f in os.listdir(directory) if f.endswith('.wav')]
         st.session_state.wav_files.sort()
-        st.session_state.current_index = 0
         load_transcriptions()
         st.write(f"Loaded {len(st.session_state.wav_files)} files.")
         print("Directory:", directory)
@@ -156,17 +79,19 @@ if st.button("Load Directory"):
     else:
         st.write("Invalid directory. Please try again.")
 
-if st.session_state.current_index >= 0 and st.session_state.current_index < len(st.session_state.wav_files):
-    wav_file = st.session_state.wav_files[st.session_state.current_index]
-    wav_path = os.path.join(directory, wav_file)
-    st.audio(wav_path)
-    print("WAV Path:", wav_path)
-    st.text_input("Transcription:", key="transcription_input", value=st.session_state.transcriptions.get(wav_path, ""), on_change=save_transcription)
-
-    if st.button("Save Transcription"):
-        save_transcription()
-else:
-    st.write("All files have been transcribed.")
+if st.session_state.wav_files:
+    start_index = st.session_state.current_index
+    end_index = min(start_index + 5, len(st.session_state.wav_files))
+    for i in range(start_index, end_index):
+        wav_file = st.session_state.wav_files[i]
+        wav_path = os.path.join(directory, wav_file)
+        st.audio(wav_path)
+        transcription = st.text_input(f"Transcription for {wav_file}", key=f"transcription_{i}", 
+                                      value=st.session_state.transcriptions.get(wav_path, ""), 
+                                      on_change=save_transcription, args=(i, st.session_state[f"transcription_{i}"]))
+    
+    if st.button("Next 5 Files"):
+        st.session_state.current_index = end_index
 
 if os.path.exists("last_state.txt"):
     load_last_state()
@@ -182,6 +107,10 @@ if os.path.exists("transcriptions.tsv"):
         file_name="transcriptions.tsv",
         mime="text/tab-separated-values"
     )
+
+if st.button("Reset Transcriptions"):
+    if st.checkbox("Confirm Reset"):
+        reset_transcriptions()
 
 if st.button("Reset Session"):
     if st.checkbox("Confirm Reset"):
