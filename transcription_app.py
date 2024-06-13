@@ -56,6 +56,17 @@ def load_transcriptions():
             st.session_state.transcriptions[row['Path']] = row['Sentence']
             st.session_state.transcribed_files[row['Path']] = True
 
+def reset_transcriptions():
+    if os.path.exists("transcriptions.tsv"):
+        os.remove("transcriptions.tsv")
+    if os.path.exists("last_state.txt"):
+        os.remove("last_state.txt")
+    st.session_state.current_index = -1
+    st.session_state.transcriptions = {}
+    st.session_state.transcribed_files = {}
+    st.session_state.transcription_input = ""
+    st.write("Transcriptions and state have been reset.")
+
 # User interface
 st.title("Transcription App")
 
@@ -76,12 +87,7 @@ if st.session_state.current_index >= 0 and st.session_state.current_index < len(
     wav_path = os.path.join(directory, wav_file)
     st.audio(wav_path)
 
-    transcribed = st.session_state.transcribed_files.get(wav_path, False)
-    if transcribed:
-        st.write(f"File '{wav_file}' has already been transcribed.")
-        st.text_input("Transcription:", key="transcription_input", value=st.session_state.transcriptions[wav_path], on_change=save_transcription)
-    else:
-        st.text_input("Transcription:", key="transcription_input")
+    st.text_input("Transcription:", key="transcription_input", value=st.session_state.transcriptions.get(wav_path, ""), on_change=save_transcription)
 
     if st.button("Save Transcription"):
         save_transcription()
@@ -104,3 +110,8 @@ if os.path.exists("transcriptions.tsv"):
         file_name="transcriptions.tsv",
         mime="text/tab-separated-values"
     )
+
+# Provide option to reset transcriptions
+if st.button("Reset Transcriptions"):
+    if st.confirm("Are you sure you want to reset all transcriptions? This action cannot be undone."):
+        reset_transcriptions()
