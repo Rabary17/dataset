@@ -13,14 +13,14 @@ def authenticate_gsheets(json_keyfile):
 
 # Load data from Google Sheets
 def load_gsheets_data(sheet_url, sheet_name):
-    client = authenticate_gsheets('path_to_your_service_account.json')
+    client = authenticate_gsheets('service_account.json')
     sheet = client.open_by_url(sheet_url).worksheet(sheet_name)
     data = sheet.get_all_records()
     return pd.DataFrame(data)
 
 # Save data to Google Sheets
 def save_gsheets_data(sheet_url, sheet_name, data):
-    client = authenticate_gsheets('path_to_your_service_account.json')
+    client = authenticate_gsheets('service_account.json')
     sheet = client.open_by_url(sheet_url).worksheet(sheet_name)
     sheet.clear()
     sheet.update([data.columns.values.tolist()] + data.values.tolist())
