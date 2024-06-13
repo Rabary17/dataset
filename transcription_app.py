@@ -1,86 +1,188 @@
 import os
 import pandas as pd
 import streamlit as st
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-
-# Google Sheets authentication
-def authenticate_gsheets(json_keyfile):
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name('https://docs.google.com/spreadsheets/d/10x18cjYsZJhrMMXSoGlE2gcHYtteEyqAZHig6jmRRsY/edit?gid=0#gid=0', scope)
-    client = gspread.authorize(creds)
-    return client
-
-# Load data from Google Sheets
-def load_gsheets_data(sheet_url, sheet_name):
-    client = authenticate_gsheets('https://drive.google.com/file/d/1FNgMWFIXCOKw-rO555AlTDbkAaJ3HiA6/view?usp=sharing')
-    sheet = client.open_by_url(sheet_url).worksheet(sheet_name)
-    data = sheet.get_all_records()
-    return pd.DataFrame(data)
-
-# Save data to Google Sheets
-def save_gsheets_data(sheet_url, sheet_name, data):
-    client = authenticate_gsheets('https://drive.google.com/file/d/1FNgMWFIXCOKw-rO555AlTDbkAaJ3HiA6/view?usp=sharing')
-    sheet = client.open_by_url(sheet_url).worksheet(sheet_name)
-    sheet.clear()
-    sheet.update([data.columns.values.tolist()] + data.values.tolist())
 
 # Initialize session state variables
 if 'current_index' not in st.session_state:
-    st.session_state.current_index = 0
+    st.session_state.current_index = -1
 if 'transcriptions' not in st.session_state:
     st.session_state.transcriptions = {}
+if 'wav_files' not in st.session_state:
+    st.session_state.wav_files = []
+if 'transcribed_files' not in st.session_state:
+    st.session_state.transcribed_files = {}
+if 'transcription_input' not in st.session_state:
+    st.session_state.transcription_input = ""
 
-# Load transcriptions from Google Sheets
-sheet_url = st.text_input("Enter Google Sheet URL:")
-sheet_name = st.text_input("Enter Sheet Name:")
-if st.button("Load Transcriptions"):
-    transcriptions_df = load_gsheets_data(sheet_url, sheet_name)
-    for _, row in transcriptions_df.iterrows():
-        st.session_state.transcriptions[row['Path']] = row['Sentence']
-    st.write("Transcriptions loaded.")
-
-# Directory selection and file loading
-directory = st.text_input("Select directory containing WAV files:", value="")
-wav_files = [f for f in os.listdir(directory) if f.endswith('.wav')] if directory else []
-
-# Save transcription
 def save_transcription():
     transcription = st.session_state.transcription_input.strip()
     if transcription:
-        wav_file = wav_files[st.session_state.current_index]
+        wav_file = st.session_state.wav_files[st.session_state.current_index]
         wav_path = os.path.join(directory, wav_file)
         st.session_state.transcriptions[wav_path] = transcription
+        st.session_state.transcribed_files[wav_path] = True
 
-        # Save to Google Sheets
-        transcriptions_df = pd.DataFrame(list(st.session_state.transcriptions.items()), columns=["Path", "Sentence"])
-        save_gsheets_data(sheet_url, sheet_name, transcriptions_df)
+        # Save to TSV
+        df = pd.DataFrame(list(st.session_state.transcriptions.items()), columns=["Path", "Sentence"])
+        df.to_csv("transcriptions.tsv", sep="\t", index=False)
+
+        # Save current state
+        with open("last_state.txt", "w") as f:
+            f.write(f"{directory}\n{st.session_state.current_index}\n")
 
         # Move to the next WAV file
-        if st.session_state.current_index + 1 < len(wav_files):
+        if st.session_state.current_index + 1 < len(st.session_state.wav_files):
             st.session_state.current_index += 1
             st.session_state.transcription_input = ""  # Reset transcription input for the next file
         else:
             st.session_state.current_index = -1  # Mark as all files transcribed
 
-# Display current WAV file
-if wav_files and st.session_state.current_index >= 0:
-    wav_file = wav_files[st.session_state.current_index]
+def load_last_state():
+    if os.path.exists("last_state.txt"):
+        with open("last_state.txt", "r") as f:
+            lines = f.readlines()
+            if len(lines) >= 2:
+                global directory
+                directory = lines[0].strip()
+                st.session_state.current_index = int(lines[1].strip())
+                st.session_state.wav_files = [f for f in os.listdir(directory) if f.endswith('.wav')]
+                st.session_state.wav_files.sort()
+                load_transcriptions()
+
+def load_transcriptions():
+    if os.path.exists("transcriptions.tsv"):
+        df = pd.read_csv("transcriptions.tsv", sep="\t")
+        for _, row in df.iterrows():
+            st.session_state.transcriptions[row['Path']] = row['Sentence']
+            st.session_state.transcribed_files[row['Path']] = True
+
+def reset_transcriptions():
+    if os.path.exists("transcriptions.tsv"):
+        os.remove("transcriptions.tsv")
+    if os.path.exists("last_state.txt"):
+        os.remove("last_state.txt")
+    st.session_state.current_index = -1
+    st.session_state.transcriptions = {}
+    st.session_state.transcribed_files = {}
+    st.session_state.transcription_input = ""
+    st.write("Transcriptions and state have been reset.")
+
+# User interface
+st.title("Transcription App")
+
+directory = st.text_input("Select directory containing WAV files:", value="")
+
+if st.button("Load Directory"):
+    if os.path.isdir(directory):
+        st.session_state.wav_files = [f for f in os.listdir(directory) if f.endswith('.wav')]
+        st.session_state.wav_files.sort()
+        st.session_state.current_index = 0
+        load_transcriptions()
+        st.write(f"Loaded {len(st.session_state.wav_files)} files.")
+
+        # Print out directory and list of WAV files
+        print("Directory:", directory)
+        print("WAV Files:", st.session_state.wav_files)
+    else:
+        st.write("Invalid directory. Please try again.")
+
+if st.session_state.current_index >= 0 and st.session_state.current_index < len(st.session_state.wav_files):
+    wav_file = st.session_state.wav_files[st.session_state.current_index]
     wav_path = os.path.join(directory, wav_file)
     st.audio(wav_path)
+
+    # Print out wav_path
+    print("WAV Path:", wav_path)
+
     st.text_input("Transcription:", key="transcription_input", value=st.session_state.transcriptions.get(wav_path, ""), on_change=save_transcription)
 
     if st.button("Save Transcription"):
         save_transcription()
 else:
-    st.write("All files have been transcribed or directory is empty.")
+    st.write("All files have been transcribed.")
 
-# Reset transcriptions
+# Load last state if exists
+if os.path.exists("last_state.txt"):
+    load_last_state()
+    if st.session_state.current_index >= 0:
+        st.write(f"Resumed from last session. Current file: {st.session_state.wav_files[st.session_state.current_index]}")
+
+# Provide option to download the TSV file
+if os.path.exists("transcriptions.tsv"):
+    with open("transcriptions.tsv", "r") as f:
+        tsv_content = f.read()
+    st.download_button(
+        label="Download Transcriptions TSV",
+        data=tsv_content,
+        file_name="transcriptions.tsv",
+        mime="text/tab-separated-values"
+    )
+
+# Provide option to reset transcriptions
 if st.button("Reset Transcriptions"):
     if st.checkbox("Confirm Reset"):
+        reset_transcriptions()
+
+def reset_session():
+    # Remove any saved files
+    if os.path.exists("transcriptions.tsv"):
+        os.remove("transcriptions.tsv")
+    if os.path.exists("last_state.txt"):
+        os.remove("last_state.txt")
+
+    # Clear session state variables
+    st.session_state.current_index = -1
+    st.session_state.transcriptions = {}
+    st.session_state.transcribed_files = {}
+    st.session_state.transcription_input = ""
+    st.session_state.wav_files = []
+
+    st.write("Session has been reset.")
+
+# User interface
+st.title("Transcription App")
+
+directory = st.text_input("Select directory containing WAV files:", value="")
+
+if st.button("Load Directory"):
+    if os.path.isdir(directory):
+        st.session_state.wav_files = [f for f in os.listdir(directory) if f.endswith('.wav')]
+        st.session_state.wav_files.sort()
         st.session_state.current_index = 0
-        st.session_state.transcriptions = {}
-        st.session_state.transcription_input = ""
-        transcriptions_df = pd.DataFrame(columns=["Path", "Sentence"])
-        save_gsheets_data(sheet_url, sheet_name, transcriptions_df)
-        st.write("Transcriptions and state have been reset.")
+        load_transcriptions()
+        st.write(f"Loaded {len(st.session_state.wav_files)} files.")
+        print("Directory:", directory)
+        print("WAV Files:", st.session_state.wav_files)
+    else:
+        st.write("Invalid directory. Please try again.")
+
+if st.session_state.current_index >= 0 and st.session_state.current_index < len(st.session_state.wav_files):
+    wav_file = st.session_state.wav_files[st.session_state.current_index]
+    wav_path = os.path.join(directory, wav_file)
+    st.audio(wav_path)
+    print("WAV Path:", wav_path)
+    st.text_input("Transcription:", key="transcription_input", value=st.session_state.transcriptions.get(wav_path, ""), on_change=save_transcription)
+
+    if st.button("Save Transcription"):
+        save_transcription()
+else:
+    st.write("All files have been transcribed.")
+
+if os.path.exists("last_state.txt"):
+    load_last_state()
+    if st.session_state.current_index >= 0:
+        st.write(f"Resumed from last session. Current file: {st.session_state.wav_files[st.session_state.current_index]}")
+
+if os.path.exists("transcriptions.tsv"):
+    with open("transcriptions.tsv", "r") as f:
+        tsv_content = f.read()
+    st.download_button(
+        label="Download Transcriptions TSV",
+        data=tsv_content,
+        file_name="transcriptions.tsv",
+        mime="text/tab-separated-values"
+    )
+
+if st.button("Reset Session"):
+    if st.checkbox("Confirm Reset"):
+        reset_session()
