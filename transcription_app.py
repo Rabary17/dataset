@@ -122,3 +122,67 @@ if os.path.exists("transcriptions.tsv"):
 if st.button("Reset Transcriptions"):
     if st.checkbox("Confirm Reset"):
         reset_transcriptions()
+
+def reset_session():
+    # Remove any saved files
+    if os.path.exists("transcriptions.tsv"):
+        os.remove("transcriptions.tsv")
+    if os.path.exists("last_state.txt"):
+        os.remove("last_state.txt")
+
+    # Clear session state variables
+    st.session_state.current_index = -1
+    st.session_state.transcriptions = {}
+    st.session_state.transcribed_files = {}
+    st.session_state.transcription_input = ""
+    st.session_state.wav_files = []
+
+    st.write("Session has been reset.")
+
+# User interface
+st.title("Transcription App")
+
+directory = st.text_input("Select directory containing WAV files:", value="")
+
+if st.button("Load Directory"):
+    if os.path.isdir(directory):
+        st.session_state.wav_files = [f for f in os.listdir(directory) if f.endswith('.wav')]
+        st.session_state.wav_files.sort()
+        st.session_state.current_index = 0
+        load_transcriptions()
+        st.write(f"Loaded {len(st.session_state.wav_files)} files.")
+        print("Directory:", directory)
+        print("WAV Files:", st.session_state.wav_files)
+    else:
+        st.write("Invalid directory. Please try again.")
+
+if st.session_state.current_index >= 0 and st.session_state.current_index < len(st.session_state.wav_files):
+    wav_file = st.session_state.wav_files[st.session_state.current_index]
+    wav_path = os.path.join(directory, wav_file)
+    st.audio(wav_path)
+    print("WAV Path:", wav_path)
+    st.text_input("Transcription:", key="transcription_input", value=st.session_state.transcriptions.get(wav_path, ""), on_change=save_transcription)
+
+    if st.button("Save Transcription"):
+        save_transcription()
+else:
+    st.write("All files have been transcribed.")
+
+if os.path.exists("last_state.txt"):
+    load_last_state()
+    if st.session_state.current_index >= 0:
+        st.write(f"Resumed from last session. Current file: {st.session_state.wav_files[st.session_state.current_index]}")
+
+if os.path.exists("transcriptions.tsv"):
+    with open("transcriptions.tsv", "r") as f:
+        tsv_content = f.read()
+    st.download_button(
+        label="Download Transcriptions TSV",
+        data=tsv_content,
+        file_name="transcriptions.tsv",
+        mime="text/tab-separated-values"
+    )
+
+if st.button("Reset Session"):
+    if st.checkbox("Confirm Reset"):
+        reset_session()
