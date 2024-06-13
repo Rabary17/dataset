@@ -96,3 +96,14 @@ if os.path.exists("last_state.txt"):
     load_last_state()
     if st.session_state.current_index >= 0:
         st.write(f"Resumed from last session. Current file: {st.session_state.wav_files[st.session_state.current_index]}")
+
+# Provide option to download the TSV file
+if os.path.exists("transcriptions.tsv"):
+    with open("transcriptions.tsv", "r") as f:
+        tsv_content = f.read()
+    st.download_button(
+        label="Download Transcriptions TSV",
+        data=tsv_content,
+        file_name="transcriptions.tsv",
+        mime="text/tab-separated-values"
+    )
