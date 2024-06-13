@@ -120,5 +120,5 @@ if os.path.exists("transcriptions.tsv"):
 
 # Provide option to reset transcriptions
 if st.button("Reset Transcriptions"):
-    if st.confirm("Are you sure you want to reset all transcriptions? This action cannot be undone."):
+    if st.checkbox("Confirm Reset"):
         reset_transcriptions()
